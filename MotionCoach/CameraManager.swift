@@ -2,10 +2,24 @@ import AVFoundation
 import Combine
 import Foundation
 
+struct DebugInfo: Equatable {
+    var detectionCount: Int = 0
+    var ballDetected: Bool = false
+    var basketDetected: Bool = false
+    var ballConfidence: Double = 0
+    var basketConfidence: Double = 0
+    var ballCenter: CGPoint = .zero
+    var basketCenter: CGPoint = .zero
+    var framesProcessed: Int = 0
+    var lastError: String?
+}
+
 final class CameraManager: NSObject, ObservableObject {
     @Published private(set) var stats = DrillStats()
     @Published private(set) var cameraStatus: CameraStatus = .unknown
     @Published private(set) var modelStatus: ModelStatus = .notLoaded
+    @Published private(set) var debugInfo = DebugInfo()
+    @Published private(set) var detections: [Detection] = []
 
     let session = AVCaptureSession()
 
@@ -14,6 +28,7 @@ final class CameraManager: NSObject, ObservableObject {
     private let detector = CoreMLYOLODetector()
     private let shotCounter = ShotCounter()
     private var onMake: (() -> Void)?
+    private var frameCount = 0
 
     override init() {
         super.init()
@@ -36,6 +51,8 @@ final class CameraManager: NSObject, ObservableObject {
     func resetStats() {
         shotCounter.reset()
         stats = DrillStats()
+        frameCount = 0
+        debugInfo = DebugInfo()
     }
 
     private func checkPermissionAndStart() {
@@ -120,20 +137,39 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         from connection: AVCaptureConnection
     ) {
         do {
-            let detections = try detector.detections(in: sampleBuffer)
-            let event = shotCounter.process(detections)
-
+            let frameDetections = try detector.detections(in: sampleBuffer)
+            let event = shotCounter.process(frameDetections)
             let stats = shotCounter.stats
+            let count = frameDetections.count
+
+            let ball = frameDetections.first(where: { $0.detectedClass == .ball })
+            let basket = frameDetections.first(where: { $0.detectedClass == .basket })
+
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.stats = stats
+                self.detections = frameDetections
+                self.frameCount += 1
+                self.debugInfo = DebugInfo(
+                    detectionCount: count,
+                    ballDetected: ball != nil,
+                    basketDetected: basket != nil,
+                    ballConfidence: ball?.confidence ?? 0,
+                    basketConfidence: basket?.confidence ?? 0,
+                    ballCenter: ball?.center ?? .zero,
+                    basketCenter: basket?.center ?? .zero,
+                    framesProcessed: self.frameCount,
+                    lastError: nil
+                )
                 if case .make = event {
                     self.onMake?()
                 }
             }
         } catch {
             DispatchQueue.main.async { [weak self] in
-                self?.modelStatus = .failed(error.localizedDescription)
+                guard let self else { return }
+                self.debugInfo.lastError = error.localizedDescription
+                self.modelStatus = .failed(error.localizedDescription)
             }
         }
     }
@@ -154,10 +190,12 @@ enum ModelStatus: Equatable {
 
     var message: String? {
         switch self {
-        case .notLoaded, .loaded:
+        case .notLoaded:
+            return "Model not loaded."
+        case .loaded:
             return nil
         case .missing:
-            return "Add best.mlpackage to the target to enable shot detection."
+            return "Model missing — add best.mlpackage to the target."
         case .failed(let message):
             return "Model error: \(message)"
         }

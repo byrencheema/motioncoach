@@ -159,6 +159,9 @@ struct LiveDrillScreen: View {
             Color.black.opacity(cameraManager.cameraStatus == .authorized ? 0 : 0.82)
                 .ignoresSafeArea()
 
+            DetectionOverlay(detections: cameraManager.detections)
+                .ignoresSafeArea()
+
             VStack {
                 HStack(alignment: .top) {
                     DrillHUD(stats: cameraManager.stats, progressText: progressText)
@@ -173,15 +176,19 @@ struct LiveDrillScreen: View {
 
                 Spacer()
 
-                if let message = statusMessage {
-                    Text(message)
-                        .font(.footnote.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .padding(12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .padding()
+                VStack(spacing: 6) {
+                    if let message = statusMessage {
+                        Text(message)
+                            .font(.footnote.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                            .padding(12)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    DebugOverlay(info: cameraManager.debugInfo, modelStatus: cameraManager.modelStatus)
                 }
+                .padding()
             }
         }
         .navigationBarBackButtonHidden()
@@ -431,6 +438,81 @@ struct ImageTransferable: Transferable {
         DataRepresentation(exportedContentType: .png) { item in
             item.image.pngData() ?? Data()
         }
+    }
+}
+
+struct DebugOverlay: View {
+    let info: DebugInfo
+    let modelStatus: ModelStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("MODEL: \(modelStatusText)")
+                .foregroundStyle(modelStatus == .loaded ? .green : .red)
+            Text("FRAMES: \(info.framesProcessed)")
+            Text("DETECTIONS: \(info.detectionCount)")
+            HStack(spacing: 12) {
+                Label(info.ballDetected ? String(format: "%.0f%%", info.ballConfidence * 100) : "--",
+                      systemImage: "circle.fill")
+                    .foregroundStyle(info.ballDetected ? .orange : .gray)
+                Label(info.basketDetected ? String(format: "%.0f%%", info.basketConfidence * 100) : "--",
+                      systemImage: "square.fill")
+                    .foregroundStyle(info.basketDetected ? .cyan : .gray)
+            }
+            if let error = info.lastError {
+                Text("ERR: \(error)")
+                    .foregroundStyle(.red)
+            }
+        }
+        .font(.caption.monospaced())
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.black.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var modelStatusText: String {
+        switch modelStatus {
+        case .loaded: return "LOADED"
+        case .missing: return "MISSING"
+        case .notLoaded: return "NOT LOADED"
+        case .failed(let msg): return "FAILED - \(msg)"
+        }
+    }
+}
+
+struct DetectionOverlay: View {
+    let detections: [Detection]
+
+    var body: some View {
+        GeometryReader { geo in
+            ForEach(detections) { detection in
+                let rect = visionToScreen(detection.boundingBox, in: geo.size)
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(detection.detectedClass == .ball ? Color.orange : Color.cyan, lineWidth: 2)
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .overlay {
+                        Text(detection.detectedClass == .ball ? "Ball" : "Hoop")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(detection.detectedClass == .ball ? Color.orange : Color.cyan)
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .position(x: rect.midX, y: rect.minY - 10)
+                    }
+            }
+        }
+    }
+
+    private func visionToScreen(_ box: CGRect, in size: CGSize) -> CGRect {
+        CGRect(
+            x: box.origin.x * size.width,
+            y: (1 - box.origin.y - box.height) * size.height,
+            width: box.width * size.width,
+            height: box.height * size.height
+        )
     }
 }
 
