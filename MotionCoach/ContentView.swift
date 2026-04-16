@@ -46,6 +46,8 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Start Screen
+
 struct StartScreen: View {
     @State private var selectedKind: DrillKind = .freeShoot
     let onStart: (DrillConfiguration) -> Void
@@ -60,43 +62,68 @@ struct StartScreen: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("MotionCoach")
-                    .font(.largeTitle.weight(.bold))
-                Text("Pick a drill, face the hoop, and shoot.")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
+        ZStack {
+            Court.cream.ignoresSafeArea()
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
-                ForEach(drillKinds, id: \.self) { kind in
-                    DrillChoiceButton(kind: kind, isSelected: selectedKind == kind) {
-                        selectedKind = kind
+            VStack(spacing: 0) {
+                VStack(spacing: Spacing.sm) {
+                    Image(systemName: "basketball.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(Court.teal)
+                        .staggeredAppear(index: 0)
+
+                    Text("MotionCoach")
+                        .font(.courtDisplayLarge)
+                        .foregroundStyle(Court.textPrimary)
+                        .staggeredAppear(index: 1)
+
+                    Text("Pick a drill. Face the hoop. Shoot.")
+                        .font(.courtBodySmall)
+                        .foregroundStyle(Court.textSecondary)
+                        .staggeredAppear(index: 2)
+                }
+                .padding(.top, Spacing.xl)
+
+                Spacer()
+
+                LazyVGrid(
+                    columns: [GridItem(.flexible(), spacing: Spacing.md), GridItem(.flexible(), spacing: Spacing.md)],
+                    spacing: Spacing.md
+                ) {
+                    ForEach(Array(drillKinds.enumerated()), id: \.element) { index, kind in
+                        DrillChoiceButton(kind: kind, isSelected: selectedKind == kind) {
+                            let generator = UISelectionFeedbackGenerator()
+                            generator.selectionChanged()
+                            selectedKind = kind
+                        }
+                        .staggeredAppear(index: index + 3, baseDelay: 0.1)
                     }
                 }
+                .padding(.horizontal, Spacing.lg)
+
+                Spacer()
+
+                VStack(spacing: Spacing.md) {
+                    Button {
+                        let generator = UIImpactFeedbackGenerator(style: .medium)
+                        generator.impactOccurred()
+                        onStart(DrillConfiguration(kind: selectedKind))
+                    } label: {
+                        Text("Start Drill")
+                    }
+                    .buttonStyle(CourtPrimaryButtonStyle())
+                    .staggeredAppear(index: 8, baseDelay: 0.2)
+
+                    Button(action: onHistory) {
+                        Text("History")
+                    }
+                    .buttonStyle(CourtSecondaryButtonStyle())
+                    .staggeredAppear(index: 9, baseDelay: 0.2)
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.lg)
             }
-
-            Spacer()
-
-            Button {
-                onStart(DrillConfiguration(kind: selectedKind))
-            } label: {
-                Text("Start Drill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
-            Button("History", action: onHistory)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .buttonStyle(.bordered)
-                .controlSize(.large)
         }
-        .padding(24)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -108,21 +135,23 @@ struct DrillChoiceButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(kind.title)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            CourtCard(isSelected: isSelected) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Image(systemName: kind.sfSymbol)
+                        .font(.system(size: 22))
+                        .foregroundStyle(Court.teal)
+
+                    Text(kind.title)
+                        .font(.courtHeadingSmall)
+                        .foregroundStyle(Court.textPrimary)
+
+                    Text(subtitle)
+                        .font(.courtBodySmall)
+                        .foregroundStyle(Court.textSecondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
+                .padding(Spacing.base)
             }
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-            .padding(14)
-            .background(isSelected ? Color.green.opacity(0.16) : Color(.secondarySystemBackground))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.green : Color.clear, lineWidth: 2)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
     }
@@ -139,12 +168,18 @@ struct DrillChoiceButton: View {
     }
 }
 
+// MARK: - Live Drill Screen
+
 struct LiveDrillScreen: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @StateObject private var cameraManager = CameraManager()
     @State private var startedAt = Date()
     @State private var now = Date()
     @State private var didFinish = false
+    @State private var showCountdown = true
+    @State private var makeFlashCount = 0
+    @State private var makePopScale: CGFloat = 1.0
+    @State private var showDebug = false
 
     let configuration: DrillConfiguration
     let onFinished: (DrillSession) -> Void
@@ -162,33 +197,64 @@ struct LiveDrillScreen: View {
             DetectionOverlay(detections: cameraManager.detections)
                 .ignoresSafeArea()
 
+            MakeFlashOverlay(trigger: $makeFlashCount)
+
             VStack {
-                HStack(alignment: .top) {
-                    DrillHUD(stats: cameraManager.stats, progressText: progressText)
-                    Spacer()
-                    Button("End Drill") {
-                        finish()
+                ZStack(alignment: .top) {
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.6), Color.black.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 140)
+                    .ignoresSafeArea()
+
+                    VStack(spacing: Spacing.sm) {
+                        DrillHUD(
+                            stats: cameraManager.stats,
+                            progressText: progressText,
+                            makePopScale: makePopScale
+                        )
+                        .onTapGesture(count: 3) {
+                            showDebug.toggle()
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.xs)
                 }
-                .padding()
 
                 Spacer()
 
-                VStack(spacing: 6) {
+                VStack(spacing: Spacing.sm) {
                     if let message = statusMessage {
                         Text(message)
-                            .font(.footnote.weight(.semibold))
+                            .font(.courtCaption)
                             .multilineTextAlignment(.center)
-                            .padding(12)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(Spacing.md)
                             .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                     }
 
-                    DebugOverlay(info: cameraManager.debugInfo, modelStatus: cameraManager.modelStatus)
+                    if showDebug {
+                        DebugOverlay(info: cameraManager.debugInfo, modelStatus: cameraManager.modelStatus)
+                    }
                 }
-                .padding()
+                .padding(.horizontal, Spacing.lg)
+
+                Button("End Drill") {
+                    let generator = UIImpactFeedbackGenerator(style: .heavy)
+                    generator.impactOccurred()
+                    finish()
+                }
+                .buttonStyle(CourtDestructiveButtonStyle())
+                .padding(.bottom, Spacing.lg)
+            }
+
+            if showCountdown {
+                CountdownOverlay {
+                    showCountdown = false
+                }
             }
         }
         .navigationBarBackButtonHidden()
@@ -198,6 +264,15 @@ struct LiveDrillScreen: View {
             cameraManager.resetStats()
             cameraManager.configure {
                 AudioServicesPlaySystemSound(1057)
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                makeFlashCount += 1
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    makePopScale = 1.3
+                }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7).delay(0.15)) {
+                    makePopScale = 1.0
+                }
             }
         }
         .onDisappear {
@@ -213,11 +288,9 @@ struct LiveDrillScreen: View {
         if cameraManager.cameraStatus == .denied {
             return "Camera access is off. Enable camera access in Settings."
         }
-
         if cameraManager.cameraStatus == .unavailable {
             return "No rear camera is available."
         }
-
         return cameraManager.modelStatus.message
     }
 
@@ -226,7 +299,7 @@ struct LiveDrillScreen: View {
         case .freeShoot:
             return nil
         case .makeTarget(let target):
-            return "\(max(0, target - cameraManager.stats.makes)) makes left"
+            return "\(max(0, target - cameraManager.stats.makes)) left"
         case .timed(let duration):
             let remaining = max(0, Int(duration - now.timeIntervalSince(startedAt)))
             return "\(remaining / 60):\(String(format: "%02d", remaining % 60))"
@@ -235,18 +308,13 @@ struct LiveDrillScreen: View {
 
     private func finishIfNeeded() {
         guard !didFinish else { return }
-
         switch configuration.kind {
         case .freeShoot:
             break
         case .makeTarget(let target):
-            if cameraManager.stats.makes >= target {
-                finish()
-            }
+            if cameraManager.stats.makes >= target { finish() }
         case .timed(let duration):
-            if now.timeIntervalSince(startedAt) >= duration {
-                finish()
-            }
+            if now.timeIntervalSince(startedAt) >= duration { finish() }
         }
     }
 
@@ -269,152 +337,269 @@ struct LiveDrillScreen: View {
 struct DrillHUD: View {
     let stats: DrillStats
     let progressText: String?
+    var makePopScale: CGFloat = 1.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 14) {
-                StatPill(label: "Makes", value: "\(stats.makes)")
-                StatPill(label: "Attempts", value: "\(stats.attempts)")
-                StatPill(label: "FG%", value: "\(Int(stats.fieldGoalPercentage.rounded()))")
+        VStack(spacing: Spacing.sm) {
+            HStack(spacing: Spacing.md) {
+                CourtPill(label: "MAKES", value: "\(stats.makes)", accent: Court.green)
+                    .scaleEffect(makePopScale)
+                CourtPill(label: "ATT", value: "\(stats.attempts)")
+                CourtPill(label: "FG%", value: "\(Int(stats.fieldGoalPercentage.rounded()))", accent: fgColor)
             }
 
             if let progressText {
                 Text(progressText)
-                    .font(.headline.monospacedDigit())
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .font(.courtMono)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
                     .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
             }
         }
     }
-}
 
-struct StatPill: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title3.weight(.bold).monospacedDigit())
-        }
-        .frame(minWidth: 76, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+    private var fgColor: Color {
+        let pct = stats.fieldGoalPercentage
+        if pct >= 50 { return Court.green }
+        if pct >= 30 { return Court.orange }
+        return Court.red
     }
 }
+
+struct CourtPill: View {
+    let label: String
+    let value: String
+    var accent: Color = .white
+
+    var body: some View {
+        VStack(spacing: Spacing.xs) {
+            Text(label)
+                .font(.courtCaption)
+                .foregroundStyle(.white.opacity(0.7))
+            Text(value)
+                .font(.courtStat)
+                .foregroundStyle(accent)
+        }
+        .frame(minWidth: 76)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+    }
+}
+
+// MARK: - Session Summary
 
 struct SessionSummaryScreen: View {
     let session: DrillSession
     let onDone: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            SummaryCard(session: session)
+        ZStack {
+            Court.cream.ignoresSafeArea()
 
-            ShareLink(item: ImageTransferable(image: SummaryCardRenderer.image(for: session)), preview: SharePreview("MotionCoach Summary", image: Image(uiImage: SummaryCardRenderer.image(for: session)))) {
-                Label("Share Summary", systemImage: "square.and.arrow.up")
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: Spacing.lg) {
+                Spacer()
+
+                Text(session.drillKind.summaryTitle)
+                    .font(.courtHeadingLarge)
+                    .foregroundStyle(Court.textPrimary)
+                    .staggeredAppear(index: 0)
+
+                Text(session.endedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.courtBodySmall)
+                    .foregroundStyle(Court.textSecondary)
+                    .staggeredAppear(index: 1)
+
+                FGRingView(percentage: session.stats.fieldGoalPercentage)
+                    .padding(.vertical, Spacing.lg)
+                    .staggeredAppear(index: 2, baseDelay: 0.1)
+
+                VStack(spacing: Spacing.md) {
+                    StatRow(label: "Makes", value: "\(session.stats.makes)", color: Court.teal)
+                    StatRow(label: "Attempts", value: "\(session.stats.attempts)")
+                    StatRow(label: "Duration", value: session.formattedDuration)
+                }
+                .padding(.horizontal, Spacing.lg)
+                .staggeredAppear(index: 3, baseDelay: 0.2)
+
+                Spacer()
+
+                VStack(spacing: Spacing.md) {
+                    ShareLink(
+                        item: ImageTransferable(image: SummaryCardRenderer.image(for: session)),
+                        preview: SharePreview("MotionCoach Summary", image: Image(uiImage: SummaryCardRenderer.image(for: session)))
+                    ) {
+                        Text("Share Summary")
+                            .font(.courtHeadingSmall)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Court.flameGradient)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .shadow(color: Court.teal.opacity(0.15), radius: 12, y: 6)
+                    }
+
+                    Button("Done", action: onDone)
+                        .buttonStyle(CourtSecondaryButtonStyle())
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.lg)
+                .staggeredAppear(index: 4, baseDelay: 0.3)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
-            Button("Done", action: onDone)
-                .frame(maxWidth: .infinity)
-                .buttonStyle(.bordered)
-                .controlSize(.large)
         }
-        .padding(24)
         .navigationBarBackButtonHidden()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+            }
+        }
     }
 }
 
-struct SummaryCard: View {
-    let session: DrillSession
+struct StatRow: View {
+    let label: String
+    let value: String
+    var color: Color = Court.textPrimary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(session.drillKind.summaryTitle)
-                .font(.title.weight(.bold))
-            Text(session.endedAt.formatted(date: .abbreviated, time: .shortened))
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 12) {
-                SummaryMetric(label: "Makes", value: "\(session.stats.makes)")
-                SummaryMetric(label: "Attempts", value: "\(session.stats.attempts)")
-                SummaryMetric(label: "FG%", value: "\(Int(session.stats.fieldGoalPercentage.rounded()))")
-            }
+        HStack {
+            Text(label)
+                .font(.courtBodyLarge)
+                .foregroundStyle(Court.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.courtStat)
+                .foregroundStyle(color)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, Spacing.base)
+        .padding(.vertical, Spacing.md)
+        .background(Court.white)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.sm)
+                .stroke(Court.cardBorder, lineWidth: 1)
+        )
     }
 }
 
 struct SummaryMetric: View {
     let label: String
     let value: String
+    var color: Color = Court.textPrimary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+        VStack(spacing: Spacing.xs) {
             Text(value)
-                .font(.title.weight(.bold).monospacedDigit())
+                .font(.courtStat)
+                .foregroundStyle(color)
+            Text(label)
+                .font(.courtCaption)
+                .foregroundStyle(Court.textSecondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - History
 
 struct HistoryScreen: View {
     @EnvironmentObject private var sessionStore: SessionStore
 
     var body: some View {
-        List {
+        ZStack {
+            Court.cream.ignoresSafeArea()
+
             if sessionStore.sessions.isEmpty {
-                ContentUnavailableView("No Sessions Yet", systemImage: "basketball", description: Text("Your completed drills will appear here."))
-            } else {
-                Section {
-                    Chart(sessionStore.sessions.reversed()) { session in
-                        LineMark(
-                            x: .value("Date", session.endedAt),
-                            y: .value("FG%", session.stats.fieldGoalPercentage)
-                        )
-                        PointMark(
-                            x: .value("Date", session.endedAt),
-                            y: .value("FG%", session.stats.fieldGoalPercentage)
-                        )
-                    }
-                    .frame(height: 180)
-                    .chartYScale(domain: 0...100)
+                VStack(spacing: Spacing.base) {
+                    Image(systemName: "basketball.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(Court.textTertiary)
+                    Text("No Sessions Yet")
+                        .font(.courtHeadingLarge)
+                        .foregroundStyle(Court.textSecondary)
+                    Text("Complete your first drill to start tracking.")
+                        .font(.courtBodySmall)
+                        .foregroundStyle(Court.textTertiary)
                 }
+            } else {
+                ScrollView {
+                    VStack(spacing: Spacing.lg) {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text("SHOOTING TREND")
+                                .font(.courtCaption)
+                                .foregroundStyle(Court.textSecondary)
 
-                Section("Sessions") {
-                    ForEach(sessionStore.sessions) { session in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(session.drillKind.summaryTitle)
-                                    .font(.headline)
-                                Text(session.endedAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                            Chart(sessionStore.sessions.reversed()) { session in
+                                AreaMark(
+                                    x: .value("Date", session.endedAt),
+                                    y: .value("FG%", session.stats.fieldGoalPercentage)
+                                )
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [Court.teal.opacity(0.2), Court.teal.opacity(0)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .interpolationMethod(.catmullRom)
+
+                                LineMark(
+                                    x: .value("Date", session.endedAt),
+                                    y: .value("FG%", session.stats.fieldGoalPercentage)
+                                )
+                                .foregroundStyle(Court.teal)
+                                .lineStyle(StrokeStyle(lineWidth: 2.5))
+                                .interpolationMethod(.catmullRom)
+
+                                PointMark(
+                                    x: .value("Date", session.endedAt),
+                                    y: .value("FG%", session.stats.fieldGoalPercentage)
+                                )
+                                .foregroundStyle(Court.teal)
+                                .symbolSize(40)
+
+                                RuleMark(y: .value("50%", 50))
+                                    .foregroundStyle(Court.textTertiary.opacity(0.3))
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                             }
-
-                            Spacer()
-
-                            Text("\(Int(session.stats.fieldGoalPercentage.rounded()))%")
-                                .font(.title3.weight(.bold).monospacedDigit())
+                            .chartYScale(domain: 0...100)
+                            .chartXAxis {
+                                AxisMarks { _ in
+                                    AxisValueLabel()
+                                        .foregroundStyle(Court.textTertiary)
+                                }
+                            }
+                            .chartYAxis {
+                                AxisMarks { _ in
+                                    AxisGridLine()
+                                        .foregroundStyle(Court.cardBorder)
+                                    AxisValueLabel()
+                                        .foregroundStyle(Court.textTertiary)
+                                }
+                            }
+                            .frame(height: 220)
                         }
-                        .padding(.vertical, 6)
+                        .padding(Spacing.base)
+                        .background(Court.white)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .shadow(color: Court.cardShadow, radius: 8, y: 4)
+
+                        VStack(alignment: .leading, spacing: Spacing.md) {
+                            Text("SESSIONS")
+                                .font(.courtCaption)
+                                .foregroundStyle(Court.textSecondary)
+
+                            ForEach(sessionStore.sessions) { session in
+                                SessionRow(session: session)
+                            }
+                        }
                     }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.lg)
                 }
             }
         }
@@ -422,53 +607,85 @@ struct HistoryScreen: View {
     }
 }
 
-enum SummaryCardRenderer {
-    @MainActor
-    static func image(for session: DrillSession) -> UIImage {
-        let renderer = ImageRenderer(content: SummaryCard(session: session).frame(width: 640).padding(24))
-        renderer.scale = UIScreen.main.scale
-        return renderer.uiImage ?? UIImage()
-    }
-}
+struct SessionRow: View {
+    let session: DrillSession
 
-struct ImageTransferable: Transferable {
-    let image: UIImage
+    var body: some View {
+        HStack(spacing: Spacing.base) {
+            Image(systemName: session.drillKind.sfSymbol)
+                .font(.system(size: 18))
+                .foregroundStyle(Court.teal)
+                .frame(width: 40, height: 40)
+                .background(Court.tealLight)
+                .clipShape(Circle())
 
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .png) { item in
-            item.image.pngData() ?? Data()
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(session.drillKind.summaryTitle)
+                    .font(.courtHeadingSmall)
+                    .foregroundStyle(Court.textPrimary)
+                Text(session.endedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.courtBodySmall)
+                    .foregroundStyle(Court.textSecondary)
+            }
+
+            Spacer()
+
+            Text("\(Int(session.stats.fieldGoalPercentage.rounded()))%")
+                .font(.courtStat)
+                .foregroundStyle(fgColor)
         }
+        .padding(Spacing.base)
+        .background(Court.white)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md)
+                .stroke(Court.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: Court.cardShadow, radius: 6, y: 3)
+    }
+
+    private var fgColor: Color {
+        let pct = session.stats.fieldGoalPercentage
+        if pct >= 50 { return Court.green }
+        if pct >= 30 { return Court.orange }
+        return Court.red
     }
 }
+
+// MARK: - Overlays
 
 struct DebugOverlay: View {
     let info: DebugInfo
     let modelStatus: ModelStatus
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text("MODEL: \(modelStatusText)")
-                .foregroundStyle(modelStatus == .loaded ? .green : .red)
+                .foregroundStyle(modelStatus == .loaded ? Court.green : Court.red)
             Text("FRAMES: \(info.framesProcessed)")
             Text("DETECTIONS: \(info.detectionCount)")
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.md) {
                 Label(info.ballDetected ? String(format: "%.0f%%", info.ballConfidence * 100) : "--",
                       systemImage: "circle.fill")
-                    .foregroundStyle(info.ballDetected ? .orange : .gray)
+                    .foregroundStyle(info.ballDetected ? Court.orange : Court.textTertiary)
                 Label(info.basketDetected ? String(format: "%.0f%%", info.basketConfidence * 100) : "--",
                       systemImage: "square.fill")
-                    .foregroundStyle(info.basketDetected ? .cyan : .gray)
+                    .foregroundStyle(info.basketDetected ? Court.teal : Court.textTertiary)
+                Label(info.ballInBasketDetected ? String(format: "%.0f%%", info.ballInBasketConfidence * 100) : "--",
+                      systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(info.ballInBasketDetected ? Court.green : Court.textTertiary)
             }
             if let error = info.lastError {
                 Text("ERR: \(error)")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Court.red)
             }
         }
-        .font(.caption.monospaced())
-        .padding(10)
+        .font(.courtMono)
+        .foregroundStyle(.white.opacity(0.8))
+        .padding(Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
     }
 
     private var modelStatusText: String {
@@ -486,23 +703,34 @@ struct DetectionOverlay: View {
 
     var body: some View {
         GeometryReader { geo in
-            ForEach(detections) { detection in
+            ForEach(detections.filter { Self.shouldShow($0) }) { detection in
                 let rect = visionToScreen(detection.boundingBox, in: geo.size)
+                let color = Self.color(for: detection.detectedClass)
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(detection.detectedClass == .ball ? Color.orange : Color.cyan, lineWidth: 2)
+                    .stroke(color, lineWidth: 2.5)
+                    .shadow(color: color.opacity(0.5), radius: 4)
                     .frame(width: rect.width, height: rect.height)
                     .position(x: rect.midX, y: rect.midY)
-                    .overlay {
-                        Text(detection.detectedClass == .ball ? "Ball" : "Hoop")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(detection.detectedClass == .ball ? Color.orange : Color.cyan)
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
-                            .position(x: rect.midX, y: rect.minY - 10)
-                    }
             }
+        }
+    }
+
+    private static func shouldShow(_ detection: Detection) -> Bool {
+        switch detection.detectedClass {
+        case .ball, .basket, .ballInBasket:
+            return true
+        case .player, .playerShooting:
+            return false
+        }
+    }
+
+    private static func color(for cls: DetectorClass) -> Color {
+        switch cls {
+        case .ball: return Court.orange
+        case .ballInBasket: return Court.green
+        case .player: return .blue
+        case .basket: return Court.teal
+        case .playerShooting: return .purple
         }
     }
 
@@ -513,6 +741,70 @@ struct DetectionOverlay: View {
             width: box.width * size.width,
             height: box.height * size.height
         )
+    }
+}
+
+// MARK: - Share
+
+struct SummaryCard: View {
+    let session: DrillSession
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Court.teal
+                .frame(height: 4)
+
+            Text("MOTIONCOACH")
+                .font(.courtCaption)
+                .foregroundStyle(Court.textSecondary)
+                .kerning(2)
+
+            Text("\(Int(session.stats.fieldGoalPercentage.rounded()))%")
+                .font(.courtStatLarge)
+                .foregroundStyle(Court.textPrimary)
+
+            VStack(spacing: Spacing.md) {
+                StatRow(label: "Makes", value: "\(session.stats.makes)", color: Court.teal)
+                StatRow(label: "Attempts", value: "\(session.stats.attempts)")
+            }
+
+            VStack(spacing: Spacing.xs) {
+                Text(session.drillKind.summaryTitle)
+                    .font(.courtHeadingSmall)
+                    .foregroundStyle(Court.textPrimary)
+                Text(session.endedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.courtBodySmall)
+                    .foregroundStyle(Court.textSecondary)
+            }
+        }
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity)
+        .background(Court.cream)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xl))
+    }
+}
+
+enum SummaryCardRenderer {
+    @MainActor
+    static func image(for session: DrillSession) -> UIImage {
+        let renderer = ImageRenderer(
+            content: SummaryCard(session: session)
+                .frame(width: 400)
+                .padding(Spacing.lg)
+                .background(Court.cream)
+        )
+        renderer.scale = UIScreen.main.scale
+        return renderer.uiImage ?? UIImage()
+    }
+}
+
+struct ImageTransferable: Transferable {
+    let image: UIImage
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .png) { item in
+            item.image.pngData() ?? Data()
+        }
     }
 }
 

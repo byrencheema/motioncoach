@@ -8,6 +8,8 @@ struct MotionCoachApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(sessionStore)
+                .preferredColorScheme(.light)
+                .tint(Court.teal)
         }
     }
 }

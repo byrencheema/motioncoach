@@ -38,6 +38,17 @@ enum DrillKind: Codable, Hashable, Identifiable {
             return "\(Int(duration / 60))-Minute Drill"
         }
     }
+
+    var sfSymbol: String {
+        switch self {
+        case .freeShoot:
+            return "figure.basketball"
+        case .makeTarget:
+            return "target"
+        case .timed:
+            return "timer"
+        }
+    }
 }
 
 struct DrillConfiguration: Hashable {
@@ -67,11 +78,33 @@ struct DrillSession: Codable, Identifiable, Equatable, Hashable {
     var duration: TimeInterval {
         endedAt.timeIntervalSince(startedAt)
     }
+
+    var formattedDuration: String {
+        let total = Int(duration)
+        let minutes = total / 60
+        let seconds = total % 60
+        return "\(minutes):\(String(format: "%02d", seconds))"
+    }
 }
 
-enum DetectorClass: Int, Codable {
+enum DetectorClass: Int, Codable, CaseIterable {
     case ball = 0
-    case basket = 1
+    case ballInBasket = 1
+    case player = 2
+    case basket = 3
+    case playerShooting = 4
+
+    static let classCount = 5
+
+    var label: String {
+        switch self {
+        case .ball: return "Ball"
+        case .ballInBasket: return "Ball in Basket"
+        case .player: return "Player"
+        case .basket: return "Basket"
+        case .playerShooting: return "Shooting"
+        }
+    }
 }
 
 struct Detection: Identifiable {

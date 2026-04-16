@@ -6,8 +6,10 @@ struct DebugInfo: Equatable {
     var detectionCount: Int = 0
     var ballDetected: Bool = false
     var basketDetected: Bool = false
+    var ballInBasketDetected: Bool = false
     var ballConfidence: Double = 0
     var basketConfidence: Double = 0
+    var ballInBasketConfidence: Double = 0
     var ballCenter: CGPoint = .zero
     var basketCenter: CGPoint = .zero
     var framesProcessed: Int = 0
@@ -144,6 +146,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
             let ball = frameDetections.first(where: { $0.detectedClass == .ball })
             let basket = frameDetections.first(where: { $0.detectedClass == .basket })
+            let ballInBasket = frameDetections.first(where: { $0.detectedClass == .ballInBasket })
 
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -154,8 +157,10 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                     detectionCount: count,
                     ballDetected: ball != nil,
                     basketDetected: basket != nil,
+                    ballInBasketDetected: ballInBasket != nil,
                     ballConfidence: ball?.confidence ?? 0,
                     basketConfidence: basket?.confidence ?? 0,
+                    ballInBasketConfidence: ballInBasket?.confidence ?? 0,
                     ballCenter: ball?.center ?? .zero,
                     basketCenter: basket?.center ?? .zero,
                     framesProcessed: self.frameCount,

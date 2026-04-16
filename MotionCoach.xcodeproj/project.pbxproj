@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0E3566B1FFA9CE7CF79DD94F /* CourtCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55CB607F89B1B7F06382B8F /* CourtCard.swift */; };
 		100000000000000000000011 /* MotionCoachApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* MotionCoachApp.swift */; };
 		100000000000000000000012 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* Models.swift */; };
 		100000000000000000000013 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* SessionStore.swift */; };
@@ -16,6 +17,11 @@
 		100000000000000000000017 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* ContentView.swift */; };
 		100000000000000000000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* Assets.xcassets */; };
 		100000000000000000000019 /* best.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* best.mlpackage */; };
+		103BA18D4E825518A8C91E82 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9A1AC39C9C095220567A4C /* DesignSystem.swift */; };
+		5D5A107C63C60CA9A0E3539F /* FGRingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D85C110E4BA3649C0607CF /* FGRingView.swift */; };
+		677F9B8114A8CEDDE4F89A68 /* CourtButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 518B0464FF4DA8C1AC97E1EC /* CourtButton.swift */; };
+		7B826A4148C0FC3163FCDF94 /* CountdownOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */; };
+		AFB73619F732F11B0AB7EAA9 /* AnimationHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE4FEBB6275E8CBB97B93C0 /* AnimationHelpers.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +36,12 @@
 		100000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		10000000000000000000000A /* best.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = best.mlpackage; sourceTree = "<group>"; };
 		100000000000000000000020 /* MotionCoach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MotionCoach.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		518B0464FF4DA8C1AC97E1EC /* CourtButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CourtButton.swift; sourceTree = "<group>"; };
+		7CE4FEBB6275E8CBB97B93C0 /* AnimationHelpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnimationHelpers.swift; sourceTree = "<group>"; };
+		91D85C110E4BA3649C0607CF /* FGRingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FGRingView.swift; sourceTree = "<group>"; };
+		9E9A1AC39C9C095220567A4C /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		D55CB607F89B1B7F06382B8F /* CourtCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CourtCard.swift; sourceTree = "<group>"; };
+		FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +76,12 @@
 				100000000000000000000008 /* Assets.xcassets */,
 				10000000000000000000000A /* best.mlpackage */,
 				100000000000000000000009 /* Info.plist */,
+				9E9A1AC39C9C095220567A4C /* DesignSystem.swift */,
+				518B0464FF4DA8C1AC97E1EC /* CourtButton.swift */,
+				D55CB607F89B1B7F06382B8F /* CourtCard.swift */,
+				91D85C110E4BA3649C0607CF /* FGRingView.swift */,
+				FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */,
+				7CE4FEBB6275E8CBB97B93C0 /* AnimationHelpers.swift */,
 			);
 			path = MotionCoach;
 			sourceTree = "<group>";
@@ -153,6 +171,12 @@
 				100000000000000000000016 /* CameraPreview.swift in Sources */,
 				100000000000000000000017 /* ContentView.swift in Sources */,
 				100000000000000000000019 /* best.mlpackage in Sources */,
+				103BA18D4E825518A8C91E82 /* DesignSystem.swift in Sources */,
+				677F9B8114A8CEDDE4F89A68 /* CourtButton.swift in Sources */,
+				0E3566B1FFA9CE7CF79DD94F /* CourtCard.swift in Sources */,
+				5D5A107C63C60CA9A0E3539F /* FGRingView.swift in Sources */,
+				7B826A4148C0FC3163FCDF94 /* CountdownOverlay.swift in Sources */,
+				AFB73619F732F11B0AB7EAA9 /* AnimationHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +306,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = L77LA4GLFN;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MotionCoach/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -305,6 +330,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = L77LA4GLFN;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MotionCoach/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
