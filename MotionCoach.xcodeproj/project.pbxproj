@@ -22,6 +22,10 @@
 		677F9B8114A8CEDDE4F89A68 /* CourtButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 518B0464FF4DA8C1AC97E1EC /* CourtButton.swift */; };
 		7B826A4148C0FC3163FCDF94 /* CountdownOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */; };
 		AFB73619F732F11B0AB7EAA9 /* AnimationHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE4FEBB6275E8CBB97B93C0 /* AnimationHelpers.swift */; };
+		A10000000000000000000001 /* FormAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* FormAnalyzer.swift */; };
+		A10000000000000000000002 /* SkeletonOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* SkeletonOverlay.swift */; };
+		A10000000000000000000003 /* FormHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* FormHUD.swift */; };
+		A10000000000000000000004 /* FormSummaryContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* FormSummaryContent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +46,10 @@
 		9E9A1AC39C9C095220567A4C /* DesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		D55CB607F89B1B7F06382B8F /* CourtCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CourtCard.swift; sourceTree = "<group>"; };
 		FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CountdownOverlay.swift; sourceTree = "<group>"; };
+		A10000000000000000000011 /* FormAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormAnalyzer.swift; sourceTree = "<group>"; };
+		A10000000000000000000012 /* SkeletonOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonOverlay.swift; sourceTree = "<group>"; };
+		A10000000000000000000013 /* FormHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormHUD.swift; sourceTree = "<group>"; };
+		A10000000000000000000014 /* FormSummaryContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormSummaryContent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +90,10 @@
 				91D85C110E4BA3649C0607CF /* FGRingView.swift */,
 				FAB3D6B1E99949ED30134701 /* CountdownOverlay.swift */,
 				7CE4FEBB6275E8CBB97B93C0 /* AnimationHelpers.swift */,
+				A10000000000000000000011 /* FormAnalyzer.swift */,
+				A10000000000000000000012 /* SkeletonOverlay.swift */,
+				A10000000000000000000013 /* FormHUD.swift */,
+				A10000000000000000000014 /* FormSummaryContent.swift */,
 			);
 			path = MotionCoach;
 			sourceTree = "<group>";
@@ -177,6 +189,10 @@
 				5D5A107C63C60CA9A0E3539F /* FGRingView.swift in Sources */,
 				7B826A4148C0FC3163FCDF94 /* CountdownOverlay.swift in Sources */,
 				AFB73619F732F11B0AB7EAA9 /* AnimationHelpers.swift in Sources */,
+				A10000000000000000000001 /* FormAnalyzer.swift in Sources */,
+				A10000000000000000000002 /* SkeletonOverlay.swift in Sources */,
+				A10000000000000000000003 /* FormHUD.swift in Sources */,
+				A10000000000000000000004 /* FormSummaryContent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

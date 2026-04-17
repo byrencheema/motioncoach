@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import Foundation
+import Vision
 
 struct DebugInfo: Equatable {
     var detectionCount: Int = 0
@@ -22,6 +23,10 @@ final class CameraManager: NSObject, ObservableObject {
     @Published private(set) var modelStatus: ModelStatus = .notLoaded
     @Published private(set) var debugInfo = DebugInfo()
     @Published private(set) var detections: [Detection] = []
+    @Published private(set) var currentLandmarks: [PoseLandmark] = []
+    @Published private(set) var currentPhase: ShotPhase = .idle
+    @Published private(set) var currentAngles = FormAngles()
+    @Published private(set) var formStats = FormStats()
 
     let session = AVCaptureSession()
 
@@ -29,7 +34,9 @@ final class CameraManager: NSObject, ObservableObject {
     private let detectionQueue = DispatchQueue(label: "motioncoach.camera.detection")
     private let detector = CoreMLYOLODetector()
     private let shotCounter = ShotCounter()
+    private let formAnalyzer = FormAnalyzer()
     private var onMake: (() -> Void)?
+    private var formModeEnabled = false
     private var frameCount = 0
 
     override init() {
@@ -37,7 +44,8 @@ final class CameraManager: NSObject, ObservableObject {
         modelStatus = detector.isModelAvailable ? .loaded : .missing
     }
 
-    func configure(onMake: @escaping () -> Void) {
+    func configure(formMode: Bool = false, onMake: @escaping () -> Void) {
+        self.formModeEnabled = formMode
         self.onMake = onMake
         checkPermissionAndStart()
     }
@@ -52,7 +60,12 @@ final class CameraManager: NSObject, ObservableObject {
 
     func resetStats() {
         shotCounter.reset()
+        formAnalyzer.reset()
         stats = DrillStats()
+        formStats = FormStats()
+        currentLandmarks = []
+        currentPhase = .idle
+        currentAngles = FormAngles()
         frameCount = 0
         debugInfo = DebugInfo()
     }
@@ -148,6 +161,35 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             let basket = frameDetections.first(where: { $0.detectedClass == .basket })
             let ballInBasket = frameDetections.first(where: { $0.detectedClass == .ballInBasket })
 
+            var landmarks: [PoseLandmark] = []
+            var phase: ShotPhase = .idle
+            var angles = FormAngles()
+            var form = FormStats()
+
+            if formModeEnabled {
+                let poseRequest = VNDetectHumanBodyPoseRequest()
+                let poseHandler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .right)
+                try poseHandler.perform([poseRequest])
+
+                if let observation = poseRequest.results?.first {
+                    let extracted = Self.extractLandmarks(from: observation)
+                    formAnalyzer.process(landmarks: extracted)
+                }
+
+                if let event {
+                    if case .make = event {
+                        formAnalyzer.registerRep(wasMake: true)
+                    } else {
+                        formAnalyzer.registerRep(wasMake: false)
+                    }
+                }
+
+                landmarks = formAnalyzer.currentLandmarks
+                phase = formAnalyzer.currentPhase
+                angles = formAnalyzer.currentAngles
+                form = formAnalyzer.formStats
+            }
+
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.stats = stats
@@ -166,6 +208,12 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                     framesProcessed: self.frameCount,
                     lastError: nil
                 )
+                if self.formModeEnabled {
+                    self.currentLandmarks = landmarks
+                    self.currentPhase = phase
+                    self.currentAngles = angles
+                    self.formStats = form
+                }
                 if case .make = event {
                     self.onMake?()
                 }
@@ -176,6 +224,31 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 self.debugInfo.lastError = error.localizedDescription
                 self.modelStatus = .failed(error.localizedDescription)
             }
+        }
+    }
+
+    private static let jointMapping: [(VNHumanBodyPoseObservation.JointName, BodyJoint)] = [
+        (.nose, .nose), (.leftEye, .leftEye), (.rightEye, .rightEye),
+        (.leftEar, .leftEar), (.rightEar, .rightEar),
+        (.leftShoulder, .leftShoulder), (.rightShoulder, .rightShoulder),
+        (.leftElbow, .leftElbow), (.rightElbow, .rightElbow),
+        (.leftWrist, .leftWrist), (.rightWrist, .rightWrist),
+        (.leftHip, .leftHip), (.rightHip, .rightHip),
+        (.leftKnee, .leftKnee), (.rightKnee, .rightKnee),
+        (.leftAnkle, .leftAnkle), (.rightAnkle, .rightAnkle),
+        (.neck, .neck), (.root, .root)
+    ]
+
+    nonisolated private static func extractLandmarks(from observation: VNHumanBodyPoseObservation) -> [PoseLandmark] {
+        jointMapping.compactMap { visionJoint, bodyJoint in
+            guard let point = try? observation.recognizedPoint(visionJoint),
+                  point.confidence > 0.1 else { return nil }
+            return PoseLandmark(
+                joint: bodyJoint,
+                x: point.location.x,
+                y: point.location.y,
+                confidence: CGFloat(point.confidence)
+            )
         }
     }
 }

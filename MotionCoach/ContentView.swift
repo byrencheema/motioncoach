@@ -58,7 +58,8 @@ struct StartScreen: View {
         .makeTarget(10),
         .makeTarget(25),
         .timed(120),
-        .timed(300)
+        .timed(300),
+        .formAnalysis,
     ]
 
     var body: some View {
@@ -164,6 +165,8 @@ struct DrillChoiceButton: View {
             return "\(target) makes to finish"
         case .timed(let duration):
             return "\(Int(duration / 60)) minutes"
+        case .formAnalysis:
+            return "Analyze your shot"
         }
     }
 }
@@ -184,6 +187,7 @@ struct LiveDrillScreen: View {
     let configuration: DrillConfiguration
     let onFinished: (DrillSession) -> Void
 
+    private var isFormMode: Bool { configuration.kind == .formAnalysis }
     private let timer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -196,6 +200,14 @@ struct LiveDrillScreen: View {
 
             DetectionOverlay(detections: cameraManager.detections)
                 .ignoresSafeArea()
+
+            if isFormMode {
+                SkeletonOverlay(
+                    landmarks: cameraManager.currentLandmarks,
+                    phase: cameraManager.currentPhase
+                )
+                .ignoresSafeArea()
+            }
 
             MakeFlashOverlay(trigger: $makeFlashCount)
 
@@ -210,13 +222,25 @@ struct LiveDrillScreen: View {
                     .ignoresSafeArea()
 
                     VStack(spacing: Spacing.sm) {
-                        DrillHUD(
-                            stats: cameraManager.stats,
-                            progressText: progressText,
-                            makePopScale: makePopScale
-                        )
-                        .onTapGesture(count: 3) {
-                            showDebug.toggle()
+                        if isFormMode {
+                            FormHUD(
+                                angles: cameraManager.currentAngles,
+                                phase: cameraManager.currentPhase,
+                                formStats: cameraManager.formStats,
+                                shotStats: cameraManager.stats
+                            )
+                            .onTapGesture(count: 3) {
+                                showDebug.toggle()
+                            }
+                        } else {
+                            DrillHUD(
+                                stats: cameraManager.stats,
+                                progressText: progressText,
+                                makePopScale: makePopScale
+                            )
+                            .onTapGesture(count: 3) {
+                                showDebug.toggle()
+                            }
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
@@ -262,7 +286,7 @@ struct LiveDrillScreen: View {
         .onAppear {
             startedAt = Date()
             cameraManager.resetStats()
-            cameraManager.configure {
+            cameraManager.configure(formMode: isFormMode) {
                 AudioServicesPlaySystemSound(1057)
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
@@ -296,7 +320,7 @@ struct LiveDrillScreen: View {
 
     private var progressText: String? {
         switch configuration.kind {
-        case .freeShoot:
+        case .freeShoot, .formAnalysis:
             return nil
         case .makeTarget(let target):
             return "\(max(0, target - cameraManager.stats.makes)) left"
@@ -309,7 +333,7 @@ struct LiveDrillScreen: View {
     private func finishIfNeeded() {
         guard !didFinish else { return }
         switch configuration.kind {
-        case .freeShoot:
+        case .freeShoot, .formAnalysis:
             break
         case .makeTarget(let target):
             if cameraManager.stats.makes >= target { finish() }
@@ -323,12 +347,15 @@ struct LiveDrillScreen: View {
         didFinish = true
         cameraManager.stop()
 
-        let session = DrillSession(
+        var session = DrillSession(
             startedAt: startedAt,
             endedAt: Date(),
             drillKind: configuration.kind,
             stats: cameraManager.stats
         )
+        if isFormMode {
+            session.formStats = cameraManager.formStats
+        }
         sessionStore.add(session)
         onFinished(session)
     }
@@ -413,9 +440,14 @@ struct SessionSummaryScreen: View {
                     .foregroundStyle(Court.textSecondary)
                     .staggeredAppear(index: 1)
 
-                FGRingView(percentage: session.stats.fieldGoalPercentage)
-                    .padding(.vertical, Spacing.lg)
-                    .staggeredAppear(index: 2, baseDelay: 0.1)
+                if let formStats = session.formStats, !formStats.reps.isEmpty {
+                    FormSummaryContent(formStats: formStats)
+                        .staggeredAppear(index: 2, baseDelay: 0.1)
+                } else {
+                    FGRingView(percentage: session.stats.fieldGoalPercentage)
+                        .padding(.vertical, Spacing.lg)
+                        .staggeredAppear(index: 2, baseDelay: 0.1)
+                }
 
                 VStack(spacing: Spacing.md) {
                     StatRow(label: "Makes", value: "\(session.stats.makes)", color: Court.teal)
@@ -630,9 +662,15 @@ struct SessionRow: View {
 
             Spacer()
 
-            Text("\(Int(session.stats.fieldGoalPercentage.rounded()))%")
-                .font(.courtStat)
-                .foregroundStyle(fgColor)
+            if let formStats = session.formStats, let score = formStats.overallConsistencyScore {
+                Text("\(Int(score))")
+                    .font(.courtStat)
+                    .foregroundStyle(formScoreColor(score))
+            } else {
+                Text("\(Int(session.stats.fieldGoalPercentage.rounded()))%")
+                    .font(.courtStat)
+                    .foregroundStyle(fgColor)
+            }
         }
         .padding(Spacing.base)
         .background(Court.white)
@@ -648,6 +686,12 @@ struct SessionRow: View {
         let pct = session.stats.fieldGoalPercentage
         if pct >= 50 { return Court.green }
         if pct >= 30 { return Court.orange }
+        return Court.red
+    }
+
+    private func formScoreColor(_ score: Double) -> Color {
+        if score >= 80 { return Court.green }
+        if score >= 60 { return Court.orange }
         return Court.red
     }
 }
