@@ -1,6 +1,15 @@
 import Foundation
 import CoreGraphics
 
+// Biomechanics angle ranges sourced from:
+//   Okazaki & Rodacki (2012), "Increased distance of shooting on basketball jump shot",
+//     Journal of Sports Science and Medicine.
+//   Miller & Bartlett (1996), "The effects of increased shooting distance in the basketball jump shot",
+//     Journal of Sports Sciences, 14(3).
+//   Knudson (1993), "Biomechanics of the basketball jump shot", JOPERD 64(2).
+//   Physiopedia, "Biomechanics of the Basketball Jump Shot".
+// Key findings: set-point elbow ~85-100 deg, release elbow ~150-170 deg, knee flexion
+// ~50-70 deg at load. Elite shooter form-angle SD across reps is typically < 5 deg.
 final class FormAnalyzer {
     private let confidenceThreshold: CGFloat = 0.3
     private let setPointElbowRange = 75.0...110.0
